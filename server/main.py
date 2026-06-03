@@ -110,6 +110,14 @@ POSTGRES_USER = os.environ.get("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
+# Vector store provider: pgvector (default) or qdrant
+VECTOR_STORE_PROVIDER = os.environ.get("VECTOR_STORE_PROVIDER", "pgvector")
+# Qdrant config (used when VECTOR_STORE_PROVIDER=qdrant)
+QDRANT_HOST = os.environ.get("QDRANT_HOST", "localhost")
+QDRANT_PORT = int(os.environ.get("QDRANT_PORT", "6333"))
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")
+QDRANT_COLLECTION_NAME = os.environ.get("QDRANT_COLLECTION_NAME", "memories")
+
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
@@ -119,9 +127,21 @@ EMBEDDER_API_KEY = os.environ.get("EMBEDDER_API_KEY", OPENAI_API_KEY)
 EMBEDDER_BASE_URL = os.environ.get("EMBEDDER_BASE_URL")
 EMBEDDING_DIMS = int(os.environ.get("MEM0_EMBEDDING_DIMS", "1536"))
 
-DEFAULT_CONFIG = {
-    "version": "v1.1",
-    "vector_store": {
+# Build vector_store config based on provider
+if VECTOR_STORE_PROVIDER == "qdrant":
+    vector_store_config = {
+        "provider": "qdrant",
+        "config": {
+            "host": QDRANT_HOST,
+            "port": QDRANT_PORT,
+            "collection_name": QDRANT_COLLECTION_NAME,
+            "embedding_model_dims": EMBEDDING_DIMS,
+        },
+    }
+    if QDRANT_API_KEY:
+        vector_store_config["config"]["api_key"] = QDRANT_API_KEY
+else:
+    vector_store_config = {
         "provider": "pgvector",
         "config": {
             "host": POSTGRES_HOST,
@@ -132,7 +152,11 @@ DEFAULT_CONFIG = {
             "collection_name": POSTGRES_COLLECTION_NAME,
             "embedding_model_dims": EMBEDDING_DIMS,
         },
-    },
+    }
+
+DEFAULT_CONFIG = {
+    "version": "v1.1",
+    "vector_store": vector_store_config,
     "llm": {
         "provider": "openai",
         "config": {
