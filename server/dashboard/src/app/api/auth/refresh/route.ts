@@ -6,7 +6,9 @@ import { getServerApiUrl } from "@/lib/server-api-url";
 const COOKIE_NAME = "mem0_refresh_token";
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  // Dev / LAN setups use plain HTTP. Production HTTPS deployments should
+  // flip this back to `process.env.NODE_ENV === "production"`.
+  secure: false,
   sameSite: "lax" as const,
   path: "/",
   maxAge: 30 * 24 * 60 * 60, // 30 days

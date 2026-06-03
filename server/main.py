@@ -111,9 +111,13 @@ POSTGRES_PASSWORD = os.environ.get("POSTGRES_PASSWORD", "postgres")
 POSTGRES_COLLECTION_NAME = os.environ.get("POSTGRES_COLLECTION_NAME", "memories")
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL")
 HISTORY_DB_PATH = os.environ.get("HISTORY_DB_PATH", "/app/history/history.db")
 DEFAULT_LLM_MODEL = os.environ.get("MEM0_DEFAULT_LLM_MODEL", "gpt-4.1-nano-2025-04-14")
 DEFAULT_EMBEDDER_MODEL = os.environ.get("MEM0_DEFAULT_EMBEDDER_MODEL", "text-embedding-3-small")
+EMBEDDER_API_KEY = os.environ.get("EMBEDDER_API_KEY", OPENAI_API_KEY)
+EMBEDDER_BASE_URL = os.environ.get("EMBEDDER_BASE_URL")
+EMBEDDING_DIMS = int(os.environ.get("MEM0_EMBEDDING_DIMS", "1536"))
 
 DEFAULT_CONFIG = {
     "version": "v1.1",
@@ -126,13 +130,26 @@ DEFAULT_CONFIG = {
             "user": POSTGRES_USER,
             "password": POSTGRES_PASSWORD,
             "collection_name": POSTGRES_COLLECTION_NAME,
+            "embedding_model_dims": EMBEDDING_DIMS,
         },
     },
     "llm": {
         "provider": "openai",
-        "config": {"api_key": OPENAI_API_KEY, "temperature": 0.2, "model": DEFAULT_LLM_MODEL},
+        "config": {
+            "api_key": OPENAI_API_KEY,
+            "openai_base_url": OPENAI_BASE_URL,
+            "temperature": 0.2,
+            "model": DEFAULT_LLM_MODEL,
+        },
     },
-    "embedder": {"provider": "openai", "config": {"api_key": OPENAI_API_KEY, "model": DEFAULT_EMBEDDER_MODEL}},
+    "embedder": {
+        "provider": "openai",
+        "config": {
+            "api_key": EMBEDDER_API_KEY,
+            "openai_base_url": EMBEDDER_BASE_URL,
+            "model": DEFAULT_EMBEDDER_MODEL,
+        },
+    },
     "history_db_path": HISTORY_DB_PATH,
 }
 
@@ -155,10 +172,15 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_exception_handler(UpstreamError, upstream_error_handler)
-DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:3000")
+_DEFAULT_DASHBOARD_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
+DASHBOARD_URL = os.environ.get("DASHBOARD_URL") or ",".join(_DEFAULT_DASHBOARD_ORIGINS)
+_RAW_ORIGINS = [origin.strip() for origin in DASHBOARD_URL.split(",") if origin.strip()]
+# Re-add the localhost defaults so a single override (e.g. a remote host) still
+# works for local CLI/cURL smoke tests.
+DASHBOARD_ORIGINS = list({*_RAW_ORIGINS, *_DEFAULT_DASHBOARD_ORIGINS})
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[DASHBOARD_URL],
+    allow_origins=DASHBOARD_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
